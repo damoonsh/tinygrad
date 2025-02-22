@@ -70,6 +70,9 @@ sym = symbolic_simple+PatternMatcher([
   # substitute BITCAST/CONTIGUOUS with BUFFER_VIEW on DISK
   (UPat((Ops.BITCAST, Ops.CONTIGUOUS), name="root"),
    lambda root: root.replace(op=Ops.BUFFER_VIEW) if isinstance(root.device, str) and root.device.startswith("DISK") else None),
+  # put UnaryOps before EXPANDs
+  (UPat(GroupOp.Unary, src=UPat(Ops.VIEW, src=(UPat.var("inp"),), name="v"), name="alu"),
+    lambda inp, v, alu: inp.alu(alu.op).view(v.arg) if prod(alu.shape) > v.arg.real_size() else None),
 ])
 
 remove_movement_ops = merge_views+PatternMatcher([
@@ -386,7 +389,7 @@ def create_schedule_with_vars(big_sink:UOp) -> tuple[list[ScheduleItem], dict[Va
   # map tensors to buffer/const
   becomes_map: dict[UOp, UOp] = {}
   for k,v in tensor_map.items():
-    if (a:=kernel_map.get(v)) is not None and a.op is Ops.ASSIGN: becomes_map[k] = a.src[0]
+    if (a:=kernel_map.get(v.base)) is not None and a.op is Ops.ASSIGN: becomes_map[k] = a.src[0] if v is v.base else a.src[0].view(v.st)
     if v is k: continue
     if v.base.op is Ops.BUFFER: becomes_map[k] = v
     elif v.base.op is Ops.CONST:
