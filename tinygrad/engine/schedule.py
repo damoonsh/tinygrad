@@ -386,12 +386,9 @@ def create_schedule_with_vars(big_sink:UOp) -> tuple[list[ScheduleItem], dict[Va
   # map tensors to buffer/const
   becomes_map: dict[UOp, UOp] = {}
   for k,v in tensor_map.items():
-    if (a:=kernel_map.get(v)) is not None and a.op is Ops.ASSIGN: becomes_map[k] = k.src[0] if k.op is Ops.ASSIGN else a.buf_uop.reshape(k.shape)
+    if (a:=kernel_map.get(v)) is not None and a.op is Ops.ASSIGN: becomes_map[k] = a.src[0]
     if v is k: continue
-    if v.base.op is Ops.BUFFER:
-      # VIEW isn't a valid tensor uop, we need to backtrack to the movement op that created it
-      if v.op is Ops.VIEW: v = next(iter(x for x in k.toposort if (xs:=tensor_map[x]).base is v.base and xs.st == v.st))
-      if k is not v: becomes_map[k] = v
+    if v.base.op is Ops.BUFFER: becomes_map[k] = v
     elif v.base.op is Ops.CONST:
       if all_int(v.shape): becomes_map[k] = v
 
