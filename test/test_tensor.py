@@ -757,8 +757,11 @@ class TestTensorMetadata(unittest.TestCase):
   # we exclude const from kernel metadata because tensor methods can share the same CONST UOp
   def test_exclude_const_metadata(self):
     a = Tensor.arange(4)
+    self.assertEqual(a.lazydata.metadata.name, "arange")
+    print(a.lazydata)
     b = Tensor.full((4,), -1, dtype=dtypes.int).contiguous()
     sched = Tensor.schedule(a, b)
+    print(sched)
     self.assertEqual([m.name for m in sched[0].metadata], ["arange"])
     self.assertEqual([m.name for m in sched[1].metadata], ["contiguous"])
 
